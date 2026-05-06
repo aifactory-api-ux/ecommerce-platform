@@ -1,0 +1,1 @@
+export const ORDER_URL = import.meta.env.VITE_API_ORDER_URL || 'http://localhost:23003/orders';

@@ -1,148 +1,96 @@
 version: '3.8'
 
 services:
-  auth-postgres:
+  postgres:
     image: postgres:15
     environment:
       POSTGRES_USER: ecommerce
       POSTGRES_PASSWORD: secretpassword
-      POSTGRES_DB: auth_db
+      POSTGRES_DB: ecommerce
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "25432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ecommerce"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  product-postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: ecommerce
-      POSTGRES_PASSWORD: secretpassword
-      POSTGRES_DB: product_db
-    ports:
-      - "25433:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ecommerce"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  order-postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: ecommerce
-      POSTGRES_PASSWORD: secretpassword
-      POSTGRES_DB: order_db
-    ports:
-      - "25434:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ecommerce"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7.2
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
     ports:
       - "26379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
 
   auth-service:
     build:
-      context: ./backend/auth-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/auth-service/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://ecommerce:secretpassword@postgres:5432/ecommerce
+      JWT_SECRET_KEY: supersecretjwtkey
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      JWT_REFRESH_TOKEN_EXPIRE_HOURS: 24
     ports:
       - "23001:23001"
-    environment:
-      POSTGRES_HOST: auth-postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: ecommerce
-      POSTGRES_PASSWORD: secretpassword
-      POSTGRES_DB: auth_db
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      AUTH_JWT_SECRET: supersecretjwtkey
-      AUTH_JWT_EXPIRE_MINUTES: 60
-      AUTH_JWT_REFRESH_EXPIRE_DAYS: 7
     depends_on:
-      auth-postgres:
+      postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:23001/healthcheck || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   product-service:
     build:
-      context: ./backend/product-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/product-service/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://ecommerce:secretpassword@postgres:5432/ecommerce
+      JWT_SECRET_KEY: supersecretjwtkey
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      JWT_REFRESH_TOKEN_EXPIRE_HOURS: 24
     ports:
       - "23002:23002"
-    environment:
-      POSTGRES_HOST: product-postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: ecommerce
-      POSTGRES_PASSWORD: secretpassword
-      POSTGRES_DB: product_db
-      AUTH_JWT_SECRET: supersecretjwtkey
     depends_on:
-      product-postgres:
+      postgres:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:23002/healthcheck || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   order-service:
     build:
-      context: ./backend/order-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/order-service/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://ecommerce:secretpassword@postgres:5432/ecommerce
+      JWT_SECRET_KEY: supersecretjwtkey
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      JWT_REFRESH_TOKEN_EXPIRE_HOURS: 24
     ports:
       - "23003:23003"
-    environment:
-      POSTGRES_HOST: order-postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: ecommerce
-      POSTGRES_PASSWORD: secretpassword
-      POSTGRES_DB: order_db
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      AUTH_JWT_SECRET: supersecretjwtkey
-      PRODUCT_SERVICE_HOST: product-service
-      PRODUCT_SERVICE_PORT: 23002
     depends_on:
-      order-postgres:
+      postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:23003/healthcheck || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "25173:80"
+      context: .
+      dockerfile: frontend/Dockerfile
     environment:
-      VITE_BACKEND_AUTH_URL: http://localhost:23001
-      VITE_BACKEND_PRODUCT_URL: http://localhost:23002
-      VITE_BACKEND_ORDER_URL: http://localhost:23003
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:80 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      VITE_API_AUTH_URL: http://auth-service:23001/auth
+      VITE_API_PRODUCT_URL: http://product-service:23002/products
+      VITE_API_ORDER_URL: http://order-service:23003/orders
+    ports:
+      - "24000:24000"
+    depends_on:
+      - auth-service
+      - product-service
+      - order-service
+
+volumes:
+  postgres_data:
+  redis_data:

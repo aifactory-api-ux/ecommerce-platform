@@ -1,10 +1,16 @@
-from pydantic import BaseModel
-from typing import Literal
+from pydantic import BaseModel, condecimal
+from typing import List
 
 class ProductCreateRequest(BaseModel):
     name: str
     description: str
-    price: float
+    price: condecimal(max_digits=10, decimal_places=2)
+    stock: int
+
+class ProductUpdateRequest(BaseModel):
+    name: str
+    description: str
+    price: condecimal(max_digits=10, decimal_places=2)
     stock: int
 
 class ProductResponse(BaseModel):
@@ -15,4 +21,4 @@ class ProductResponse(BaseModel):
     stock: int
 
 class ProductListResponse(BaseModel):
-    products: list[ProductResponse]
+    products: List[ProductResponse]

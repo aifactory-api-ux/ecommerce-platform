@@ -2,68 +2,42 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from backend.shared.db import Base
+from backend.product_service.db import Product
 
-def test_category_model_persistence():
-    from sqlalchemy import Column, Integer, String
-    class Category(Base):
-        __tablename__ = 'categories'
-        id = Column(Integer, primary_key=True, index=True)
-        name = Column(String, nullable=False)
-
+@pytest.fixture
+def engine():
     engine = create_engine('sqlite:///:memory:')
-    Base.metadata.create_all(bind=engine)
-    SessionLocal = sessionmaker(bind=engine)
-    session = SessionLocal()
-    category = Category(name='Electronics')
-    session.add(category)
-    session.commit()
-    assert category.id == 1
-    assert category.name == 'Electronics'
+    Base.metadata.create_all(engine)
+    return engine
+
+@pytest.fixture
+def session(engine):
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    yield session
     session.close()
 
-def test_product_model_foreign_key_category():
-    from sqlalchemy import Column, Integer, String, ForeignKey
-    from sqlalchemy.orm import relationship
-    class Category(Base):
-        __tablename__ = 'categories'
-        id = Column(Integer, primary_key=True, index=True)
-        name = Column(String, nullable=False)
-    class Product(Base):
-        __tablename__ = 'products'
-        id = Column(Integer, primary_key=True, index=True)
-        name = Column(String, nullable=False)
-        category_id = Column(Integer, ForeignKey('categories.id'))
-
-    engine = create_engine('sqlite:///:memory:')
-    Base.metadata.create_all(bind=engine)
-    SessionLocal = sessionmaker(bind=engine)
-    session = SessionLocal()
-    cat = Category(name='Books')
-    session.add(cat)
-    session.commit()
-    product = Product(name='Book 1', category_id=cat.id)
+def test_product_model_persistence(session):
+    product = Product(name='DB Product', description='Persisted product', price=9.99, stock=5)
     session.add(product)
     session.commit()
-    assert product.category_id == cat.id
-    session.close()
+    retrieved = session.query(Product).filter_by(name='DB Product').first()
+    assert retrieved is not None
+    assert retrieved.name == 'DB Product'
+    assert retrieved.description == 'Persisted product'
+    assert float(retrieved.price) == 9.99
+    assert retrieved.stock == 5
 
-def test_review_model_invalid_product_id_raises():
-    from sqlalchemy import Column, Integer, String, ForeignKey
-    from sqlalchemy.exc import IntegrityError
-    class Review(Base):
-        __tablename__ = 'reviews'
-        id = Column(Integer, primary_key=True, index=True)
-        product_id = Column(Integer, ForeignKey('products.id'))
-        user_id = Column(Integer, nullable=False)
-        rating = Column(Integer, nullable=False)
-        comment = Column(String)
-
-    engine = create_engine('sqlite:///:memory:')
-    Base.metadata.create_all(bind=engine)
-    SessionLocal = sessionmaker(bind=engine)
-    session = SessionLocal()
-    with pytest.raises(IntegrityError):
-        review = Review(product_id=999, user_id=1, rating=5, comment='Great!')
-        session.add(review)
+def test_product_model_negative_stock(session):
+    product = Product(name='Negative Stock', description='Invalid stock', price=5.0, stock=-1)
+    session.add(product)
+    with pytest.raises(Exception):
         session.commit()
-    session.close()
+
+def test_product_model_large_price(session):
+    product = Product(name='Expensive Product', description='High price', price=99999999.99, stock=1)
+    session.add(product)
+    session.commit()
+    retrieved = session.query(Product).filter_by(name='Expensive Product').first()
+    assert retrieved is not None
+    assert float(retrieved.price) == 99999999.99

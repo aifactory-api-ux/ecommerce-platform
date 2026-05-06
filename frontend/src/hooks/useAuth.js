@@ -1,61 +1,81 @@
-import { useState } from 'react'
-import { register, login, refreshToken, getProfile } from '../api/auth'
-import { getStorage, setStorage, removeStorage } from '../utils/storage'
+import { useState, useEffect, useCallback } from 'react';
+import { register, login, refreshToken, getMe } from '../api/auth';
 
-function useAuth() {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+export function useAuth() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const token = getStorage('access_token')
+  const isAuthenticated = !!user;
 
-  async function authLogin(data) {
-    setLoading(true)
-    setError(null)
+  const checkAuth = useCallback(async () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     try {
-      const result = await login(data)
-      setStorage('access_token', result.access_token)
-      setStorage('refresh_token', result.refresh_token)
-      const profile = await getProfile(result.access_token)
-      setUser(profile)
-    } catch (e) {
-      setError(e.message)
+      const userData = await getMe();
+      setUser(userData);
+    } catch (err) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  }, []);
 
-  async function authRegister(data) {
-    setLoading(true)
-    setError(null)
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  const loginFn = async (email, password) => {
+    setLoading(true);
+    setError(null);
     try {
-      await register(data)
-      await authLogin({ email: data.email, password: data.password })
-    } catch (e) {
-      setError(e.message)
+      const data = await login({ email, password });
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
+      await checkAuth();
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Login failed');
+      throw err;
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  function logout() {
-    removeStorage('access_token')
-    removeStorage('refresh_token')
-    setUser(null)
-  }
-
-  async function refresh() {
-    const refresh_token = getStorage('refresh_token')
-    if (!refresh_token) return
+  const registerFn = async (data) => {
+    setLoading(true);
+    setError(null);
     try {
-      const result = await refreshToken(refresh_token)
-      setStorage('access_token', result.access_token)
-    } catch (e) {
-      logout()
+      await register(data);
+      await loginFn(data.email, data.password);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Registration failed');
+      throw err;
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
-  return { user, loading, error, login: authLogin, register: authRegister, logout, refresh }
+  const logout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    setUser(null);
+  };
+
+  const refreshTokenFn = async () => {
+    const refresh_token = localStorage.getItem('refresh_token');
+    if (!refresh_token) return;
+    try {
+      const data = await refreshToken({ refresh_token });
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
+    } catch (err) {
+      logout();
+    }
+  };
+
+  return { user, loading, error, login: loginFn, register: registerFn, logout, refreshToken: refreshTokenFn, isAuthenticated };
 }
-
-export default useAuth

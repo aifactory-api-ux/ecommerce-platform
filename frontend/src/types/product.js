@@ -1,0 +1,1 @@
+export const PRODUCT_URL = import.meta.env.VITE_API_PRODUCT_URL || 'http://localhost:23002/products';

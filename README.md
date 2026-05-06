@@ -1,69 +1,33 @@
 # E-Commerce Platform
 
-## Prerequisites
+A full-stack e-commerce application with FastAPI microservices and React frontend.
 
-- Docker 26.0.0+
-- Docker Compose 2.27.0+
-- Node.js 18+ (for local frontend development)
-
-## Clone
+## Quick Start
 
 ```bash
-git clone <repository-url>
-cd <repository-name>
+docker-compose up -d
 ```
 
-## Setup
+That's it! All services will be running with sample data.
 
-1. Copy `.env.example` to `.env`:
-```bash
-cp .env.example .env
-```
+## Services
 
-2. Start all services:
-```bash
-./run.sh
-```
+| Service | URL | Port |
+|---------|-----|------|
+| Frontend | http://localhost:24000 | 24000 |
+| Auth Service | http://localhost:23001 | 23001 |
+| Product Service | http://localhost:23002 | 23002 |
+| Order Service | http://localhost:23003 | 23003 |
+| PostgreSQL | localhost:25432 | 25432 |
+| Redis | localhost:26379 | 26379 |
 
-## API Endpoints
+## Tech Stack
 
-### Auth Service (port 23001)
+- **Backend**: Python 3.11, FastAPI 0.110.0, SQLAlchemy 2.0.29, PostgreSQL 15, Redis 7.2
+- **Frontend**: React 18.2.0, Vite 5.1.0, React Router DOM 6.22.3
+- **Infrastructure**: Docker 26.0.0, Docker Compose 2.26.1
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | /auth/register | Register new user |
-| POST | /auth/login | Login |
-| POST | /auth/refresh | Refresh token |
-| GET | /auth/me | Get profile |
+## Default Users
 
-### Product Service (port 23002)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | /products | Create product (admin) |
-| GET | /products | List products |
-| GET | /products/{id} | Get product |
-| PUT | /products/{id} | Update product (admin) |
-| DELETE | /products/{id} | Delete product (admin) |
-
-### Order Service (port 23003)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | /orders | Create order |
-| GET | /orders | List orders |
-| GET | /orders/{id} | Get order |
-
-## Troubleshooting
-
-### Database connection errors
-
-Ensure PostgreSQL containers are healthy before services start. Restart services if needed:
-
-```bash
-docker compose restart
-```
-
-### Port conflicts
-
-If ports are already in use, modify the port mappings in `docker-compose.yml`.
+- Admin: `admin@example.com` / `admin123`
+- Customer: Register through the app

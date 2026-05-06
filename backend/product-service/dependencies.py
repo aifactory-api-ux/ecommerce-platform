@@ -1,27 +1,48 @@
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
+from backend.shared.jwt_utils import decode_token
+from backend.auth_service.crud import get_user_by_id
+from backend.auth_service.db import User
 from backend.shared.db import get_db_session
-from backend.auth_service.auth import decode_jwt
-from backend.auth_service import crud as auth_crud
+import os
 
 security = HTTPBearer()
 
-def get_db(db_session = Depends(get_db_session)):
-    yield db_session
+class CredentialsError(Exception):
+    pass
 
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db_session)
+):
     token = credentials.credentials
-    payload = decode_jwt(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    user_id = payload.get("user_id")
-    user = auth_crud.get_user_by_id(db, user_id)
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+    try:
+        payload = decode_token(token)
+        user_id = payload.get("user_id")
+        if user_id is None:
+            raise CredentialsError("Invalid token payload")
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+    
+    user = get_user_by_id(db, user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+    
     return user
 
-def admin_role(user = Depends(get_current_user)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin privileges required")
-    return user
+def require_role(required_role: str):
+    def role_checker(current_user = Depends(get_current_user)):
+        if current_user.role != required_role:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions"
+            )
+        return current_user
+    return role_checker

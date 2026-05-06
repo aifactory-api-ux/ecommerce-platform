@@ -1,27 +1,14 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, Numeric, DateTime
+from sqlalchemy.sql import func
 from backend.shared.db import Base
-
-class Category(Base):
-    __tablename__ = "categories"
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False, unique=True)
 
 class Product(Base):
     __tablename__ = "products"
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    description = Column(String)
-    price = Column(Float, nullable=False)
+    description = Column(String, nullable=False)
+    price = Column(Numeric(10, 2), nullable=False)
     stock = Column(Integer, default=0)
-    category_id = Column(Integer, ForeignKey("categories.id"))
-    deleted = Column(Boolean, default=False)
-    category = relationship("Category")
-
-class Review(Base):
-    __tablename__ = "reviews"
-    id = Column(Integer, primary_key=True, index=True)
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
-    user_id = Column(Integer, nullable=False)
-    rating = Column(Integer, nullable=False)
-    comment = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

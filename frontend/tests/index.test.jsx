@@ -1,25 +1,20 @@
-import { readFile } from 'fs/promises'
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
+import { describe, it, expect } from 'vitest';
 
 describe('index.html', () => {
-  test('contains root div for React mounting', async () => {
-    const htmlPath = join(__dirname, '../index.html')
-    const content = await readFile(htmlPath, 'utf-8')
-    expect(content).toContain('<div id="root">')
-  })
+  it('renders root div with id root', () => {
+    const root = document.getElementById('root');
+    expect(root).toBeTruthy();
+  });
 
-  test('includes Vite script for main entry', async () => {
-    const htmlPath = join(__dirname, '../index.html')
-    const content = await readFile(htmlPath, 'utf-8')
-    expect(content).toContain('/src/main.jsx')
-  })
+  it('includes Vite script injection', () => {
+    const scripts = document.querySelectorAll("script[type='module']");
+    expect(scripts.length).toBeGreaterThan(0);
+  });
 
-  test('sets correct meta charset', async () => {
-    const htmlPath = join(__dirname, '../index.html')
-    const content = await readFile(htmlPath, 'utf-8')
-    expect(content).toContain('charset="UTF-8"')
-  })
-})
+  it('sets correct meta charset and viewport', () => {
+    const metaCharset = document.querySelector("meta[charset='UTF-8']");
+    const metaViewport = document.querySelector("meta[name='viewport']");
+    expect(metaCharset).toBeTruthy();
+    expect(metaViewport).toBeTruthy();
+  });
+});

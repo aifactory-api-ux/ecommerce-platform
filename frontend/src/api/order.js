@@ -1,24 +1,35 @@
-import axios from 'axios'
+import axios from 'axios';
+import { ORDER_URL } from '../types/order';
 
-const API_BASE = import.meta.env.VITE_BACKEND_ORDER_URL || 'http://localhost:23003'
+const api = axios.create({
+  baseURL: ORDER_URL,
+  headers: { 'Content-Type': 'application/json' }
+});
 
-export async function fetchOrders(token) {
-  const response = await axios.get(`${API_BASE}/orders`, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  return response.data
-}
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-export async function fetchOrder(id, token) {
-  const response = await axios.get(`${API_BASE}/orders/${id}`, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  return response.data
-}
+export const getOrders = async () => {
+  const response = await api.get('/');
+  return response.data;
+};
 
-export async function createOrder(data, token) {
-  const response = await axios.post(`${API_BASE}/orders`, data, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  return response.data
-}
+export const getOrder = async (id) => {
+  const response = await api.get(`/${id}`);
+  return response.data;
+};
+
+export const createOrder = async (data) => {
+  const response = await api.post('/', data);
+  return response.data;
+};
+
+export const updateOrderStatus = async (id, status) => {
+  const response = await api.put(`/${id}/status`, { status });
+  return response.data;
+};

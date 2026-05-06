@@ -1,19 +1,20 @@
-import React from 'react'
+import React from 'react';
 
-function ProductDetail({ product, onAddToCart }) {
-  if (!product) return <p>Loading...</p>
+function ProductDetail({ product }) {
+  if (!product) {
+    return <div className="not-found">Product not found</div>;
+  }
 
   return (
-    <div>
+    <div className="product-detail">
       <h2>{product.name}</h2>
-      <p>{product.description}</p>
-      <p>${product.price}</p>
-      <p>In stock: {product.stock}</p>
-      <button onClick={() => onAddToCart(product.id)} disabled={product.stock === 0}>
-        Add to Cart
-      </button>
+      <p className="description">{product.description}</p>
+      <div className="product-meta">
+        <span className="price">${product.price.toFixed(2)}</span>
+        <span className="stock">Stock: {product.stock}</span>
+      </div>
     </div>
-  )
+  );
 }
 
-export default ProductDetail
+export default ProductDetail;

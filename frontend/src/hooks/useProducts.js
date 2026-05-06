@@ -1,65 +1,67 @@
-import { useState, useEffect } from 'react'
-import { fetchProducts, createProduct, updateProduct, deleteProduct } from '../api/product'
+import { useState, useCallback } from 'react';
+import { getProducts, createProduct, updateProduct, deleteProduct } from '../api/product';
 
-function useProducts() {
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+export function useProducts() {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  async function loadProducts() {
-    setLoading(true)
-    setError(null)
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const data = await fetchProducts()
-      setProducts(data.products || [])
-    } catch (e) {
-      setError(e.message)
+      const data = await getProducts();
+      setProducts(data.products || []);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to fetch products');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  }, []);
 
-  useEffect(() => {
-    loadProducts()
-  }, [])
-
-  async function addProduct(data, token) {
-    setLoading(true)
+  const createProductFn = useCallback(async (productData) => {
+    setLoading(true);
+    setError(null);
     try {
-      await createProduct(data, token)
-      await loadProducts()
-    } catch (e) {
-      setError(e.message)
+      const newProduct = await createProduct(productData);
+      setProducts((prev) => [...prev, newProduct]);
+      return newProduct;
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to create product');
+      throw err;
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  }, []);
 
-  async function editProduct(id, data, token) {
-    setLoading(true)
+  const updateProductFn = useCallback(async (id, productData) => {
+    setLoading(true);
+    setError(null);
     try {
-      await updateProduct(id, data, token)
-      await loadProducts()
-    } catch (e) {
-      setError(e.message)
+      const updatedProduct = await updateProduct(id, productData);
+      setProducts((prev) => prev.map((p) => (p.id === id ? updatedProduct : p)));
+      return updatedProduct;
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to update product');
+      throw err;
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  }, []);
 
-  async function removeProduct(id, token) {
-    setLoading(true)
+  const deleteProductFn = useCallback(async (id) => {
+    setLoading(true);
+    setError(null);
     try {
-      await deleteProduct(id, token)
-      await loadProducts()
-    } catch (e) {
-      setError(e.message)
+      await deleteProduct(id);
+      setProducts((prev) => prev.filter((p) => p.id !== id));
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to delete product');
+      throw err;
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  }, []);
 
-  return { products, loading, error, fetchProducts: loadProducts, createProduct: addProduct, updateProduct: editProduct, deleteProduct: removeProduct }
+  return { products, loading, error, fetchProducts, createProduct: createProductFn, updateProduct: updateProductFn, deleteProduct: deleteProductFn };
 }
-
-export default useProducts

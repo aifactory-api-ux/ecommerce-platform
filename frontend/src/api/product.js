@@ -1,34 +1,40 @@
-import axios from 'axios'
+import axios from 'axios';
+import { PRODUCT_URL } from '../types/product';
 
-const API_BASE = import.meta.env.VITE_BACKEND_PRODUCT_URL || 'http://localhost:23002'
+const api = axios.create({
+  baseURL: PRODUCT_URL,
+  headers: { 'Content-Type': 'application/json' }
+});
 
-export async function fetchProducts() {
-  const response = await axios.get(`${API_BASE}/products`)
-  return response.data
-}
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('access_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-export async function fetchProduct(id) {
-  const response = await axios.get(`${API_BASE}/products/${id}`)
-  return response.data
-}
+export const getProducts = async () => {
+  const response = await api.get('/');
+  return response.data;
+};
 
-export async function createProduct(data, token) {
-  const response = await axios.post(`${API_BASE}/products`, data, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  return response.data
-}
+export const getProduct = async (id) => {
+  const response = await api.get(`/${id}`);
+  return response.data;
+};
 
-export async function updateProduct(id, data, token) {
-  const response = await axios.put(`${API_BASE}/products/${id}`, data, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  return response.data
-}
+export const createProduct = async (data) => {
+  const response = await api.post('/', data);
+  return response.data;
+};
 
-export async function deleteProduct(id, token) {
-  const response = await axios.delete(`${API_BASE}/products/${id}`, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  return response.data
-}
+export const updateProduct = async (id, data) => {
+  const response = await api.put(`/${id}`, data);
+  return response.data;
+};
+
+export const deleteProduct = async (id) => {
+  const response = await api.delete(`/${id}`);
+  return response.data;
+};

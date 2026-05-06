@@ -1,55 +1,128 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from backend.order-service.models import OrderCreateRequest, OrderResponse, OrderListResponse, OrderItemResponse
-from backend.order-service.crud import add_item_to_cart, get_cart, clear_cart, create_order, get_orders, get_order_by_id, update_order_status
-from backend.order-service.dependencies import get_db, get_current_user, admin_role
+from typing import List
+from backend.shared.db import get_db_session
+from backend.order_service.models import (
+    OrderCreateRequest, OrderResponse, OrderListResponse, OrderItemResponse
+)
+from backend.order_service.crud import (
+    get_order_by_id, get_orders_by_user_id, get_all_orders, create_order, update_order_status,
+    OrderNotFoundError
+)
+from backend.product_service.crud import get_product_by_id
+from .dependencies import get_current_user, require_role
 
-router = APIRouter()
+router = APIRouter(prefix="/orders", tags=["orders"])
 
-@router.get("/cart")
-def get_cart_items(user = Depends(get_current_user)):
-    cart = get_cart(user.id)
-    return {"items": cart}
-
-@router.post("/cart/items")
-def add_cart_item(product_id: int, quantity: int, user = Depends(get_current_user)):
-    try:
-        cart = add_item_to_cart(user.id, product_id, quantity)
-        return cart
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-
-@router.post("/orders", response_model=OrderResponse)
-def create_order_endpoint(order_data: OrderCreateRequest, db: Session = Depends(get_db), user = Depends(get_current_user)):
-    cart = get_cart(user.id)
-    if not cart:
-        raise HTTPException(status_code=400, detail="Cart is empty")
+def calculate_order_total(items: List[dict], db: Session) -> float:
     total = 0.0
-    items_response = []
-    for cart_item in cart:
-        items_response.append(OrderItemResponse(product_id=cart_item["product_id"], name="Product", price=10.0, quantity=cart_item["quantity"]))
-        total += 10.0 * cart_item["quantity"]
-    order = create_order(db, user.id, cart, total)
-    clear_cart(user.id)
-    return OrderResponse(id=order.id, user_id=order.user_id, items=items_response, total=order.total, status=order.status)
+    for item in items:
+        product = get_product_by_id(db, item.product_id)
+        if product:
+            total += float(product.price) * item.quantity
+    return total
 
-@router.get("/orders", response_model=OrderListResponse)
-def list_orders(db: Session = Depends(get_db), user = Depends(get_current_user)):
-    orders = get_orders(db, user.id if user.role != "admin" else None)
-    return OrderListResponse(orders=[OrderResponse(id=o.id, user_id=o.user_id, items=[], total=o.total, status=o.status) for o in orders])
+@router.post("/", response_model=OrderResponse)
+def create_order_endpoint(
+    request: OrderCreateRequest,
+    db: Session = Depends(get_db_session),
+    current_user = Depends(get_current_user)
+):
+    items_data = []
+    total = 0.0
+    
+    for item in request.items:
+        product = get_product_by_id(db, item.product_id)
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Product {item.product_id} not found"
+            )
+        
+        items_data.append({
+            "product_id": product.id,
+            "name": product.name,
+            "price": float(product.price),
+            "quantity": item.quantity
+        })
+        total += float(product.price) * item.quantity
+    
+    order = create_order(db, current_user.id, items_data, total)
+    
+    return OrderResponse(
+        id=order.id,
+        user_id=order.user_id,
+        status=order.status,
+        total=float(order.total),
+        items=[OrderItemResponse(**item) for item in order.items]
+    )
 
-@router.get("/orders/{order_id}", response_model=OrderResponse)
-def get_order_detail(order_id: int, db: Session = Depends(get_db), user = Depends(get_current_user)):
+@router.get("/", response_model=OrderListResponse)
+def list_orders(
+    db: Session = Depends(get_db_session),
+    current_user = Depends(get_current_user)
+):
+    if current_user.role == "admin":
+        orders = get_all_orders(db)
+    else:
+        orders = get_orders_by_user_id(db, current_user.id)
+    
+    return OrderListResponse(
+        orders=[
+            OrderResponse(
+                id=o.id,
+                user_id=o.user_id,
+                status=o.status,
+                total=float(o.total),
+                items=[OrderItemResponse(**item) for item in o.items]
+            )
+            for o in orders
+        ]
+    )
+
+@router.get("/{order_id}", response_model=OrderResponse)
+def get_order_endpoint(
+    order_id: int,
+    db: Session = Depends(get_db_session),
+    current_user = Depends(get_current_user)
+):
     order = get_order_by_id(db, order_id)
     if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    if order.user_id != user.id and user.role != "admin":
-        raise HTTPException(status_code=403, detail="Access denied")
-    return OrderResponse(id=order.id, user_id=order.user_id, items=[], total=order.total, status=order.status)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    
+    if current_user.role != "admin" and order.user_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    
+    return OrderResponse(
+        id=order.id,
+        user_id=order.user_id,
+        status=order.status,
+        total=float(order.total),
+        items=[OrderItemResponse(**item) for item in order.items]
+    )
 
-@router.patch("/orders/{order_id}/status", response_model=OrderResponse)
-def update_status(order_id: int, status: str, db: Session = Depends(get_db), user = Depends(admin_role)):
-    order = update_order_status(db, order_id, status)
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    return OrderResponse(id=order.id, user_id=order.user_id, items=[], total=order.total, status=order.status)
+@router.put("/{order_id}/status", response_model=OrderResponse)
+def update_order_status_endpoint(
+    order_id: int,
+    request: dict,
+    db: Session = Depends(get_db_session),
+    current_user = Depends(require_role("admin"))
+):
+    status_value = request.get("status")
+    if status_value not in ["pending", "paid", "shipped", "cancelled"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid status value"
+        )
+    
+    try:
+        order = update_order_status(db, order_id, status_value)
+        return OrderResponse(
+            id=order.id,
+            user_id=order.user_id,
+            status=order.status,
+            total=float(order.total),
+            items=[OrderItemResponse(**item) for item in order.items]
+        )
+    except OrderNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")

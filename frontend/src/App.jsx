@@ -1,22 +1,25 @@
-import React from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import AuthRoutes from './routes/AuthRoutes'
-import ProductRoutes from './routes/ProductRoutes'
-import OrderRoutes from './routes/OrderRoutes'
-import useAuth from './hooks/useAuth'
+import React from 'react';
+import { Outlet } from 'react-router-dom';
+import Header from './components/Layout/Header';
+import Footer from './components/Layout/Footer';
+import { useAuth } from './hooks/useAuth';
 
 function App() {
-  const { user } = useAuth()
+  const { user, logout, loading } = useAuth();
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/auth/*" element={<AuthRoutes />} />
-        <Route path="/products/*" element={<ProductRoutes />} />
-        <Route path="/orders/*" element={<OrderRoutes />} />
-        <Route path="/" element={<Navigate to="/products" replace />} />
-      </Routes>
-    </BrowserRouter>
-  )
+    <div className="app">
+      <Header user={user} onLogout={logout} />
+      <main>
+        <Outlet />
+      </main>
+      <Footer />
+    </div>
+  );
 }
 
-export default App
+export default App;

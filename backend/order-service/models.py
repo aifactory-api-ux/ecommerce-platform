@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import List, Literal
+from pydantic import BaseModel, condecimal
+from typing import List
 
 class OrderItemRequest(BaseModel):
     product_id: int
@@ -17,9 +17,9 @@ class OrderItemResponse(BaseModel):
 class OrderResponse(BaseModel):
     id: int
     user_id: int
-    items: List[OrderItemResponse]
-    total: float
     status: str
+    total: float
+    items: List[OrderItemResponse]
 
 class OrderListResponse(BaseModel):
     orders: List[OrderResponse]

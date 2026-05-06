@@ -1,102 +1,95 @@
 # API_CONTRACT.md
 
-## Auth Service
+## Auth Service (`/auth`)
 
-| Method | Path            | Auth Required | Request Body Schema         | Response Schema            | Status Codes |
-|--------|-----------------|--------------|----------------------------|----------------------------|--------------|
-| POST   | /auth/register  | No           | UserRegisterRequest        | UserRegisterResponse       | 200          |
-| POST   | /auth/login     | No           | UserLoginRequest           | UserLoginResponse          | 200          |
-| POST   | /auth/refresh   | No           | TokenRefreshRequest        | TokenRefreshResponse       | 200          |
-| GET    | /auth/me        | Yes (Bearer) | N/A                        | UserProfileResponse        | 200          |
+| Method | Path           | Auth Required | Request Body Schema         | Response Schema         | Status Codes |
+|--------|----------------|--------------|----------------------------|------------------------|-------------|
+| POST   | /auth/register | No           | UserRegisterRequest        | UserResponse           | 200         |
+| POST   | /auth/login    | No           | UserLoginRequest           | TokenResponse          | 200         |
+| POST   | /auth/refresh  | No           | TokenRefreshRequest        | TokenResponse          | 200         |
+| GET    | /auth/me       | Yes (Bearer) | —                          | UserResponse           | 200         |
 
 ### Schemas
 
 #### UserRegisterRequest
 
-| Field    | Type   | Required |
-|----------|--------|----------|
-| email    | string | Yes      |
-| password | string | Yes      |
-| name     | string | Yes      |
-
-#### UserRegisterResponse
-
-| Field | Type   |
-|-------|--------|
-| id    | int    |
-| email | string |
-| name  | string |
-| role  | "customer" \| "admin" |
+| Field    | Type    | Required |
+|----------|---------|----------|
+| email    | string  | Yes      |
+| password | string  | Yes      |
+| name     | string  | Yes      |
 
 #### UserLoginRequest
 
-| Field    | Type   | Required |
-|----------|--------|----------|
-| email    | string | Yes      |
-| password | string | Yes      |
-
-#### UserLoginResponse
-
-| Field         | Type   |
-|---------------|--------|
-| access_token  | string |
-| refresh_token | string |
-| token_type    | "bearer" |
+| Field    | Type    | Required |
+|----------|---------|----------|
+| email    | string  | Yes      |
+| password | string  | Yes      |
 
 #### TokenRefreshRequest
 
-| Field         | Type   | Required |
-|---------------|--------|----------|
-| refresh_token | string | Yes      |
+| Field         | Type    | Required |
+|---------------|---------|----------|
+| refresh_token | string  | Yes      |
 
-#### TokenRefreshResponse
+#### UserResponse
 
-| Field        | Type      |
-|--------------|-----------|
-| access_token | string    |
-| token_type   | "bearer"  |
-
-#### UserProfileResponse
-
-| Field | Type   |
-|-------|--------|
-| id    | int    |
-| email | string |
-| name  | string |
+| Field | Type    |
+|-------|---------|
+| id    | int     |
+| email | string  |
+| name  | string  |
 | role  | "customer" \| "admin" |
+
+#### TokenResponse
+
+| Field         | Type    |
+|---------------|---------|
+| access_token  | string  |
+| refresh_token | string  |
+| token_type    | "bearer"|
 
 ---
 
-## Product Service
+## Product Service (`/products`)
 
-| Method | Path              | Auth Required         | Request Body Schema      | Response Schema         | Status Codes |
-|--------|-------------------|----------------------|-------------------------|------------------------|--------------|
-| POST   | /products         | Yes (Bearer, admin)  | ProductCreateRequest    | ProductResponse        | 200          |
-| GET    | /products         | No                   | N/A                    | ProductListResponse    | 200          |
-| GET    | /products/{id}    | No                   | N/A                    | ProductResponse        | 200          |
-| PUT    | /products/{id}    | Yes (Bearer, admin)  | ProductCreateRequest    | ProductResponse        | 200          |
-| DELETE | /products/{id}    | Yes (Bearer, admin)  | N/A                    | { "detail": "Product deleted" } | 200 |
+| Method | Path                       | Auth Required         | Request Body Schema      | Response Schema         | Status Codes |
+|--------|----------------------------|----------------------|-------------------------|------------------------|-------------|
+| POST   | /products/                 | Yes (Bearer, admin)  | ProductCreateRequest    | ProductResponse        | 200         |
+| GET    | /products/                 | No                   | —                       | ProductListResponse    | 200         |
+| GET    | /products/{product_id}     | No                   | —                       | ProductResponse        | 200         |
+| PUT    | /products/{product_id}     | Yes (Bearer, admin)  | ProductUpdateRequest    | ProductResponse        | 200         |
+| DELETE | /products/{product_id}     | Yes (Bearer, admin)  | —                       | { "detail": "Product deleted" } | 200 |
 
 ### Schemas
 
 #### ProductCreateRequest
 
-| Field       | Type    | Required |
-|-------------|---------|----------|
-| name        | string  | Yes      |
-| description | string  | Yes      |
-| price       | float   | Yes      |
-| stock       | int     | Yes      |
+| Field       | Type   | Required |
+|-------------|--------|----------|
+| name        | string | Yes      |
+| description | string | Yes      |
+| price       | number | Yes      |
+| stock       | int    | Yes      |
+
+#### ProductUpdateRequest
+
+| Field       | Type   | Required |
+|-------------|--------|----------|
+| name        | string | Yes      |
+| description | string | Yes      |
+| price       | number | Yes      |
+| stock       | int    | Yes      |
 
 #### ProductResponse
 
-| Field       | Type    |
-|-------------|---------|
-| id          | int     |
-| name        | string  |
-| description | string  |
-| price       | float   |
-| stock       | int     |
+| Field       | Type   |
+|-------------|--------|
+| id          | int    |
+| name        | string |
+| description | string |
+| price       | number |
+| stock       | int    |
 
 #### ProductListResponse
 
@@ -104,52 +97,65 @@
 |----------|---------------------|
 | products | ProductResponse[]   |
 
+#### DELETE /products/{product_id} Response
+
+| Field  | Type   |
+|--------|--------|
+| detail | string |
+
 ---
 
-## Order Service
+## Order Service (`/orders`)
 
-| Method | Path           | Auth Required                     | Request Body Schema    | Response Schema      | Status Codes |
-|--------|----------------|-----------------------------------|-----------------------|---------------------|--------------|
-| POST   | /orders        | Yes (Bearer, customer only)       | OrderCreateRequest    | OrderResponse       | 200          |
-| GET    | /orders        | Yes (Bearer, customer/admin)      | N/A                   | OrderListResponse   | 200          |
-| GET    | /orders/{id}   | Yes (Bearer, customer/admin)      | N/A                   | OrderResponse       | 200          |
+| Method | Path                          | Auth Required                | Request Body Schema         | Response Schema         | Status Codes |
+|--------|-------------------------------|------------------------------|----------------------------|------------------------|-------------|
+| POST   | /orders/                      | Yes (Bearer, customer only)  | OrderCreateRequest         | OrderResponse          | 200         |
+| GET    | /orders/                      | Yes (Bearer)                 | —                          | OrderListResponse      | 200         |
+| GET    | /orders/{order_id}            | Yes (Bearer, owner or admin) | —                          | OrderResponse          | 200         |
+| PUT    | /orders/{order_id}/status     | Yes (Bearer, admin only)     | { "status": "pending" \| "paid" \| "shipped" \| "cancelled" } | OrderResponse | 200 |
 
 ### Schemas
 
 #### OrderItemRequest
 
-| Field      | Type | Required |
-|------------|------|----------|
-| product_id | int  | Yes      |
-| quantity   | int  | Yes      |
+| Field      | Type   | Required |
+|------------|--------|----------|
+| product_id | int    | Yes      |
+| quantity   | int    | Yes      |
 
 #### OrderCreateRequest
 
-| Field | Type                 | Required |
-|-------|----------------------|----------|
-| items | OrderItemRequest[]   | Yes      |
+| Field | Type                | Required |
+|-------|---------------------|----------|
+| items | OrderItemRequest[]  | Yes      |
 
 #### OrderItemResponse
 
-| Field      | Type    |
-|------------|---------|
-| product_id | int     |
-| name       | string  |
-| price      | float   |
-| quantity   | int     |
+| Field      | Type   |
+|------------|--------|
+| product_id | int    |
+| name       | string |
+| price      | number |
+| quantity   | int    |
 
 #### OrderResponse
 
-| Field   | Type                 |
-|---------|----------------------|
-| id      | int                  |
-| user_id | int                  |
-| items   | OrderItemResponse[]  |
-| total   | float                |
-| status  | string               |
+| Field   | Type                  |
+|---------|-----------------------|
+| id      | int                   |
+| user_id | int                   |
+| status  | string                |
+| total   | number                |
+| items   | OrderItemResponse[]   |
 
 #### OrderListResponse
 
 | Field  | Type             |
 |--------|------------------|
 | orders | OrderResponse[]  |
+
+#### PUT /orders/{order_id}/status Request
+
+| Field  | Type                                              | Required |
+|--------|---------------------------------------------------|----------|
+| status | "pending" \| "paid" \| "shipped" \| "cancelled"   | Yes      |
